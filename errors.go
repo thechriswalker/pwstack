@@ -10,5 +10,7 @@ var (
 
 	ErrUnknownVersion = errors.New("hash version is unknown")
 
-	errNilHasher = errors.New("cannot use a nil Hasher in the stack")
+	errNilScheme        = errors.New("cannot use a nil password scheme in the stack")
+	errDuplicateVersion = errors.New("duplicate scheme version in stack")
+	errInvalidSalt      = errors.New("salt length invalid")
 )

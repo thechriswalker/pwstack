@@ -6,25 +6,27 @@ import (
 
 const (
 	plain         = "hunter2"
-	argonHunter2  = `2id:TcT5l2O9_nxXGEh6Cgj3zg:19,1,65536,2:i4BZc_QMsCJICiIWd7P15VxNigAtjefNI9fMCajnxqc`
-	scryptHunter2 = `sc:_zstkyE7w7QvG6zxKbIRKA:65536,8,1:8bBzXrAdjXnfTesM-yE3YkLaTpJiKWpb3PhYMfiZ544`
+	argonHunter2  = `00:_K7uK0k8e7hAIhtyyg9kbw:21.FTJ2wtZJMVki4khAZHUTyXpU3qNb2cAdtMKIUeYCKww.MTksMSw2NTUzNiwy`
+	scryptHunter2 = `01:M3EuJLWHMSVFn-HLlgnKGA:5c.Aij4o5dw-U0TPhsmo50YhzIiWNSJh0v-IQferpQG8y8.NjU1MzYsOCwx`
 )
 
 func TestArgon2id(t *testing.T) {
-
-	h := DefaultArgon2idParams_2021_10()
-	hash, err := h.Hash([]byte(plain))
+	scheme, err := New(DefaultArgon2idScheme_2021_10(0))
+	if err != nil {
+		t.Error(err)
+	}
+	hash, err := scheme.Hash(plain)
 	if err != nil {
 		t.Error(err)
 	} else {
 		t.Logf("%s\n", hash)
 	}
 
-	match, _ := h.Compare([]byte(plain), hash)
+	match, _ := scheme.Compare(plain, hash)
 	if !match {
 		t.Error("argon Compare fail (with new hash)")
 	}
-	match, _ = h.Compare([]byte(plain), []byte(argonHunter2))
+	match, _ = scheme.Compare(plain, argonHunter2)
 	if !match {
 		t.Error("argon Compare fail (with stored hash)")
 	}
@@ -32,20 +34,23 @@ func TestArgon2id(t *testing.T) {
 
 func TestScrypt(t *testing.T) {
 
-	h := DefaultScryptParams_2021_10()
+	scheme, err := New(DefaultScryptScheme_2021_10(1))
+	if err != nil {
+		t.Error(err)
+	}
 
-	hash, err := h.Hash([]byte(plain))
+	hash, err := scheme.Hash(plain)
 	if err != nil {
 		t.Error(err)
 	} else {
 		t.Logf("%s\n", hash)
 	}
 
-	match, _ := h.Compare([]byte(plain), hash)
+	match, _ := scheme.Compare(plain, hash)
 	if !match {
 		t.Error("scrypt Compare fail (with new hash)")
 	}
-	match, _ = h.Compare([]byte(plain), []byte(scryptHunter2))
+	match, _ = scheme.Compare(plain, scryptHunter2)
 	if !match {
 		t.Error("scrypt Compare fail (with stored hash)")
 	}
@@ -53,8 +58,8 @@ func TestScrypt(t *testing.T) {
 
 func TestSimpleStack(t *testing.T) {
 	stack, _ := New(
-		WithPreferred(0x02, DefaultArgon2idParams_2021_10()),
-		WithDeprecated(0x01, DefaultScryptParams_2021_10()),
+		DefaultArgon2idScheme_2021_10(0),
+		DefaultScryptScheme_2021_10(1),
 	)
 
 	hash, err := stack.Hash(plain)
@@ -69,33 +74,36 @@ func TestSimpleStack(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	match, err = stack.Compare(plain, "02:"+argonHunter2)
+	match, err = stack.Compare(plain, argonHunter2)
 	if !match {
 		t.Error("stack didn't match correctly (stored preferred hash)")
 	}
 	if err != nil {
 		t.Error(err)
 	}
-	match, err = stack.Compare(plain, "01:"+scryptHunter2)
+	match, err = stack.Compare(plain, scryptHunter2)
 	if !match {
 		t.Error("stack didn't match correctly (stored deprecated hash)")
 	}
 	if err != ErrDeprecatedHash {
 		t.Error("expecting deprecated hash warning")
 	}
-	match, err = stack.Compare(plain, "02:"+scryptHunter2)
+	test := "00:" + scryptHunter2[2:]
+	match, err = stack.Compare(plain, test)
 	if match {
-		t.Error("stack matched incorrectly (invalid hash)")
+		t.Errorf("stack matched incorrectly (invalid hash) (%s)", test)
 	}
 	if err != ErrInvalidHash {
-		t.Error("expecting invalid hash wanring")
+		t.Error("expecting invalid hash warning, got", err)
 	}
-	match, err = stack.Compare(plain, "ff:"+scryptHunter2)
+
+	test = "ff:" + scryptHunter2[2:]
+	match, err = stack.Compare(plain, test)
 	if match {
-		t.Error("stack matched incorrectly (invalid hash version)")
+		t.Errorf("stack matched incorrectly (invalid hash version) (%s)", test)
 	}
 	if err != ErrUnknownVersion {
-		t.Error("expecting unknown hash version wanring")
+		t.Error("expecting unknown hash version warning")
 	}
 
 }

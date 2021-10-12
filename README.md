@@ -1,6 +1,6 @@
 # Password Stack for Golang
 
-Secure password hashing for storage. Allows migration of password hashs from less secure to more secure hashes as need requires.
+Secure password hashing for interactive logins, with versioning as your application evolves.
 
 Allows application developers to version their password storage methods, continuing to
 support them as new methods become available or keys for keyed storage need rotating.
@@ -14,19 +14,23 @@ import "github.com/thechriswalker/pwstack"
 func main(){
 
     // our application wants to use Argon2id with a HMAC based secret key
-    preferredHash = stack.Keyed(
-        stack.DefaultArgon2idParams_2021_10(),
-        stack.HmacKey([]byte("secretKey"), sha256.New)
+    // using our inbuild pepper mechanism which uses sha3-384
+    // this is the third iteration of our scheme.
+    preferredHash = stack.Peppered(
+        stack.DefaultArgon2idParams_2021_10(3),
+        []byte("secretKey")
     )
 
-    // but previously we had and different key.
-    withOldKey = stack.Keyed(
-        stack.DefaultArgon2idParams_2021_10(),
-        stack.HmacKey([]byte("some old key, now rotated"), sha256.New)
+    // but previously we had and different key, same everything else
+    // version 2
+    withOldKey = stack.Peppered(
+        stack.DefaultArgon2idScheme_2021_10(2),
+        []byte("some old key, now rotated")
     )
 
     // and before that we had non keyed scrypt hashes
-    evenOlder = stack.DefaultScryptParams_2021_10()
+    // version 1
+    evenOlder = stack.DefaultScryptScheme_2021_10(1)
 
     // now lets build a stack.
     // we give each "hash" a version, so that
@@ -35,9 +39,9 @@ func main(){
     // lifetime. once all hashes have migrated, you
     // can drop support for the old ones.
     pwstack, err := stack.New(
-        stack.WithPreferred(0x03, preferredHash),
-        stack.WithDeprecated(0x02, withOldKey),
-        stack.WithDeprecated(0x01, evenOlder),
+        preferredHash,
+        withOldKey,
+        evenOlder,
     )
     if err != nil {
         panic(err)
